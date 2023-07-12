@@ -1,6 +1,8 @@
 import { pipe } from '@effect/data/Function';
 import * as Effect from '@effect/io/Effect';
 import * as Exit from '@effect/io/Exit';
+import * as Random from '@effect/io/Random';
+import * as Cause from '@effect/io/Cause';
 
 const divide = (a: number, b: number): Effect.Effect<never, Error, number> =>
   b === 0
@@ -12,28 +14,27 @@ const log2 =
   (a: any): Effect.Effect<never, never, void> =>
     Effect.sync(() => console.log(msg, a));
 
-const getRandom = (): Effect.Effect<never, never, number> =>
-  Effect.sync(() => Math.random());
+// const getRandom = (): Effect.Effect<never, never, number> =>
+//   Effect.sync(() => Math.random());
 
 const pipeStyleProgram = pipe(
-  getRandom(),
+  Random.next,
   Effect.tap(log2('Initial random value: ')),
 
-  Effect.map((x) => Math.ceil(x * 10)),
-  Effect.tap(log2('*10 and rounded up: ')),
+  Effect.map((x) => Math.floor(x * 10)),
+  Effect.tap(log2('*10 and rounded down: ')),
 
   Effect.flatMap((x) => divide(10, x))
 );
 
 const doNotationProgram = Effect.gen(function* (_) {
-  const random = yield* _(getRandom());
+  const random = yield* _(Random.next);
   yield* _(log2('Initial random value: ')(random));
 
-  const x = yield* _(Effect.sync(() => Math.ceil(random * 10)));
-  yield* _(log2('*10 and rounded up: ')(x));
+  const x = yield* _(Effect.sync(() => Math.floor(random * 10)));
+  yield* _(log2('*10 and rounded down: ')(x));
 
-  const result = yield* _(divide(10, x));
-  return result;
+  return yield* _(divide(10, x));
 });
 
 function runLog<A>(effect: Effect.Effect<never, Error, A>): void {
@@ -41,8 +42,9 @@ function runLog<A>(effect: Effect.Effect<never, Error, A>): void {
     effect,
     Effect.runSyncExit,
     Exit.match({
-      onFailure: (err) => console.error(`Failed with ${err}`),
-      onSuccess: (val) => console.log(`Success with ${val}`),
+      onFailure: (err) => console.log(`Failed with ${Cause.pretty(err)}`),
+      onSuccess: (val) =>
+        console.log(`Succeeded dividing 10 by last result: ${val}`),
     })
   );
 }
